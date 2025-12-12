@@ -2,55 +2,127 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>Icecube 商城控制台 (Pro)</title>
+    <title>Icecube 核心中枢 (完整版)</title>
     <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.12.0/dist/av-min.js"></script>
     <style>
-        /* 保持之前的黑客风格，增加了一些新样式 */
-        body { font-family: 'Segoe UI', sans-serif; background-color: #0d1117; color: #c9d1d9; display: flex; justify-content: center; min-height: 100vh; margin: 0; padding: 20px; }
-        .box { background: #161b22; padding: 30px; border: 1px solid #30363d; border-radius: 12px; width: 100%; max-width: 500px; margin-bottom: 20px; }
+        /* === 黑客风格 UI === */
+        body { font-family: 'Segoe UI', 'Consolas', sans-serif; background-color: #0d1117; color: #c9d1d9; display: flex; justify-content: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box;}
+        
+        /* 登录框样式 */
+        #login-panel { width: 100%; max-width: 450px; background: #161b22; padding: 40px; border: 1px solid #30363d; border-radius: 12px; box-shadow: 0 0 50px rgba(0,0,0,0.8); margin-top: 50px; }
+        
+        /* 后台主界面样式 */
+        #dashboard { width: 100%; max-width: 800px; display: none; }
+        .box { background: #161b22; padding: 25px; border: 1px solid #30363d; border-radius: 12px; margin-bottom: 20px; }
+        
         h2, h3 { color: #58a6ff; margin-top: 0; border-bottom: 1px solid #30363d; padding-bottom: 10px; }
-        input, textarea { width: 100%; padding: 10px; background: #0d1117; border: 1px solid #30363d; color: white; border-radius: 6px; margin-bottom: 10px; box-sizing: border-box; }
-        button { width: 100%; padding: 10px; background: #238636; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; margin-bottom: 10px; }
+        h2 { text-align: center; letter-spacing: 1px; }
+
+        .input-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-size: 12px; color: #8b949e; }
+        input, textarea { width: 100%; padding: 12px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 6px; box-sizing: border-box; font-family: monospace; }
+        input:focus, textarea:focus { border-color: #58a6ff; outline: none; }
+        
+        #dynamic-token { border-color: #f85149; color: #f85149; font-weight: bold; }
+        
+        button { width: 100%; padding: 12px; background: #238636; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; }
         button:hover { background: #2ea043; }
-        .secondary { background: #1f6feb; } .secondary:hover { background: #388bfd; }
-        .danger { background: #da3633; }
-        .section { margin-bottom: 30px; }
-        label { display: block; margin-bottom: 5px; font-size: 0.9em; color: #8b949e; }
+        .btn-blue { background: #1f6feb; } .btn-blue:hover { background: #388bfd; }
+        .btn-red { background: #da3633; } .btn-red:hover { background: #f85149; }
+        .btn-gray { background: #30363d; } .btn-gray:hover { background: #484f58; }
+
+        .hidden { display: none; }
+        .alert { color: #f85149; text-align: center; margin-top: 10px; font-size: 12px; word-break: break-all;}
+
+        /* 商品列表样式 */
+        .item-row { display: flex; align-items: center; background: #0d1117; border: 1px solid #30363d; padding: 10px; margin-bottom: 10px; border-radius: 6px; }
+        .item-img { width: 50px; height: 50px; object-fit: cover; border-radius: 4px; margin-right: 15px; }
+        .item-info { flex: 1; }
+        .item-name { font-weight: bold; color: #fff; }
+        .item-price { color: #e74c3c; }
+        .item-actions { display: flex; gap: 10px; }
+        .btn-sm { padding: 5px 10px; font-size: 12px; width: auto; }
+        
+        /* 编辑模式下的高亮边框 */
+        .editing-mode { border: 2px solid #e74c3c !important; }
+        #edit-indicator { display: none; color: #e74c3c; font-weight: bold; margin-bottom: 10px; }
     </style>
 </head>
 <body>
 
-    <div class="box">
-        <h2>🛠️ 商城配置中心</h2>
+    <!-- === 1. 登录面板 (RSA 令牌版) === -->
+    <div id="login-panel">
+        <h2>☢️ TOP SECRET ☢️</h2>
         
-        <!-- 1. 收款码配置区 -->
-        <div class="section">
-            <h3>💰 支付设置</h3>
-            <label>收款码图片链接 (微信/支付宝):</label>
-            <input type="text" id="qr-code-url" placeholder="粘贴你的收款码图片地址...">
-            <button onclick="saveConfig()" class="secondary">💾 保存收款码配置</button>
+        <div class="input-group">
+            <label>ADMIN EMAIL</label>
+            <input type="text" id="email" value="lluoqi816@gmail.com">
+        </div>
+        <div class="input-group">
+            <label>PASSWORD</label>
+            <input type="password" id="password" placeholder="******">
+        </div>
+        
+        <!-- 100位密钥输入 -->
+        <div class="input-group">
+            <label style="color: #f85149;">⚠️ DYNAMIC RSA TOKEN (100 Chars)</label>
+            <input type="text" id="dynamic-token" placeholder="Paste generated token here...">
         </div>
 
-        <!-- 2. 商品发布区 -->
-        <div class="section">
-            <h3>📦 发布新商品</h3>
-            <label>商品名称:</label>
-            <input type="text" id="p-name">
-            
-            <label>价格 (元):</label>
-            <input type="number" id="p-price">
-            
-            <label>图片链接 (支持多张，用英文逗号 , 隔开):</label>
-            <textarea id="p-img" rows="3" placeholder="例如: http://a.com/1.jpg, http://a.com/2.jpg"></textarea>
-            
-            <button onclick="uploadProduct()">🚀 上架商品</button>
+        <button onclick="secureLogin()">AUTHENTICATE & LOGIN</button>
+        <div id="msg" class="alert"></div>
+    </div>
+
+    <!-- === 2. 后台主界面 (包含发布、修改、删除) === -->
+    <div id="dashboard">
+        <!-- 顶部状态栏 -->
+        <div class="box" style="display:flex; justify-content:space-between; align-items:center;">
+            <span>🟢 SYSTEM ONLINE | User: <span id="user-display"></span></span>
+            <button onclick="AV.User.logOut();location.reload();" class="btn-red btn-sm">LOGOUT</button>
         </div>
 
-        <button onclick="AV.User.logOut();location.reload();" class="danger">退出登录</button>
+        <!-- 配置区 -->
+        <div class="box">
+            <h3>💰 支付配置</h3>
+            <div class="input-group">
+                <label>收款码图片链接</label>
+                <input type="text" id="qr-code-url" placeholder="微信/支付宝收款码 URL">
+            </div>
+            <button onclick="saveConfig()" class="btn-blue">保存配置</button>
+        </div>
+
+        <!-- 商品发布/编辑区 -->
+        <div class="box" id="upload-box">
+            <h3 id="form-title">📦 发布新商品</h3>
+            <div id="edit-indicator">⚠️ 正在编辑模式 | <a href="javascript:cancelEdit()" style="color:#58a6ff">取消编辑</a></div>
+            
+            <div class="input-group">
+                <label>商品名称</label>
+                <input type="text" id="p-name">
+            </div>
+            <div class="input-group">
+                <label>价格</label>
+                <input type="number" id="p-price">
+            </div>
+            <div class="input-group">
+                <label>图片链接 (多张用逗号隔开)</label>
+                <textarea id="p-img" rows="3" placeholder="http://img1.jpg, http://img2.jpg"></textarea>
+            </div>
+            
+            <button onclick="handleProductSubmit()" id="submit-btn">🚀 立即上架</button>
+        </div>
+
+        <!-- 商品管理列表 -->
+        <div class="box">
+            <h3>📝 已上架商品管理 (<span id="item-count">0</span>)</h3>
+            <div id="manager-list">
+                <p style="text-align:center; color:#666;">正在加载数据...</p>
+            </div>
+        </div>
     </div>
 
     <script>
-        // === 配置区 ===
+        // ================= 配置区 =================
         const CONFIG = {
             appId: "SKHyBQH4nGeF6PDB8MVLTMD4-MdYXbMMI",
             appKey: "kUQ2O1stpz6V8bNhcbk2tkrV",
@@ -58,76 +130,205 @@
         };
         AV.init(CONFIG);
 
-        // 检查登录
-        if (!AV.User.current()) {
-            // 如果没登录，简单的弹窗输入登录 (简化版，为了代码短一点)
-            const email = prompt("请输入管理员邮箱:");
-            const pass = prompt("请输入密码:");
-            AV.User.logInWithEmail(email, pass).then(() => {
-                alert("登录成功");
-                loadConfig(); // 登录后加载收款码
-            }, (e) => {
-                alert("登录失败，请刷新重试");
-            });
-        } else {
-            loadConfig();
-        }
+        // 当前正在编辑的商品ID (null表示新建模式)
+        let editingProductId = null;
 
-        // === 功能 1: 保存收款码 ===
-        async function saveConfig() {
-            const qrUrl = document.getElementById('qr-code-url').value;
-            if(!qrUrl) return alert("请填写收款码链接");
+        // 检查登录状态
+        window.onload = function() {
+            if(AV.User.current()) {
+                showDashboard();
+            }
+        };
 
-            // 我们用一个叫 GlobalConfig 的表来存这些设置
-            const query = new AV.Query('GlobalConfig');
-            let config;
+        // ================= 登录逻辑 (RSA校验) =================
+        async function secureLogin() {
+            const email = document.getElementById('email').value;
+            const pass = document.getElementById('password').value;
+            const inputToken = document.getElementById('dynamic-token').value.trim();
+            const msg = document.getElementById('msg');
+
+            msg.innerText = "Verifying Token...";
+
+            if (inputToken.length !== 100) {
+                msg.innerText = "❌ 格式错误：密钥必须是 100 位";
+                return;
+            }
+
             try {
-                config = await query.first(); // 尝试找已有的配置
-            } catch(e) {}
+                // 1. 校验 Token
+                const query = new AV.Query('SecureToken');
+                const realTokenObj = await query.first();
+                
+                if (!realTokenObj || inputToken !== realTokenObj.get('content')) {
+                    msg.innerText = "❌ 拒绝访问：令牌无效";
+                    return;
+                }
 
-            if (!config) {
-                const ConfigClass = AV.Object.extend('GlobalConfig');
-                config = new ConfigClass();
+                // 2. 校验账号
+                await AV.User.logIn(email, pass);
+                msg.innerText = "SUCCESS.";
+                setTimeout(showDashboard, 500);
+
+            } catch (error) {
+                msg.innerText = "LOGIN FAILED: " + error.message;
             }
+        }
+
+        function showDashboard() {
+            document.getElementById('login-panel').style.display = 'none';
+            document.getElementById('dashboard').style.display = 'block';
+            document.getElementById('user-display').innerText = AV.User.current().getUsername();
             
-            config.set('paymentQR', qrUrl);
-            await config.save();
-            alert("✅ 收款码已更新！");
+            loadConfig();    // 加载收款码
+            loadMyProducts(); // 加载商品列表
         }
 
-        // 加载已有的收款码填入框内
-        async function loadConfig() {
-            const query = new AV.Query('GlobalConfig');
-            const config = await query.first();
-            if(config) {
-                document.getElementById('qr-code-url').value = config.get('paymentQR');
-            }
-        }
+        // ================= 核心业务逻辑 =================
 
-        // === 功能 2: 发布商品 (支持多图) ===
-        function uploadProduct() {
+        // 1. 提交商品 (智能判断是新建还是更新)
+        async function handleProductSubmit() {
             const name = document.getElementById('p-name').value;
             const price = Number(document.getElementById('p-price').value);
             const imgRaw = document.getElementById('p-img').value;
 
-            if(!name || !price || !imgRaw) return alert("请填写完整");
+            if(!name || !price || !imgRaw) return alert("请填写完整信息");
 
-            // 把逗号分隔的字符串变成数组，并去掉多余空格
-            const imgList = imgRaw.split(',').map(url => url.trim()).filter(url => url !== "");
+            const imgList = imgRaw.split(',').map(u => u.trim()).filter(u => u !== "");
 
-            const Product = AV.Object.extend('Product');
-            const p = new Product();
-            p.set('name', name);
-            p.set('price', price);
-            p.set('image', imgList[0]); // 兼容旧版，第一张作为主图
-            p.set('images', imgList);   // 新字段，存所有图片
+            try {
+                if (editingProductId) {
+                    // === 更新模式 ===
+                    const product = await AV.Object.createWithoutData('Product', editingProductId).fetch();
+                    product.set('name', name);
+                    product.set('price', price);
+                    product.set('image', imgList[0]);
+                    product.set('images', imgList);
+                    await product.save();
+                    alert("✅ 商品已更新！");
+                    cancelEdit(); // 退出编辑模式
+                } else {
+                    // === 新建模式 ===
+                    const Product = AV.Object.extend('Product');
+                    const p = new Product();
+                    p.set('name', name);
+                    p.set('price', price);
+                    p.set('image', imgList[0]);
+                    p.set('images', imgList);
+                    await p.save();
+                    alert("🚀 上架成功！");
+                    clearForm();
+                }
+                loadMyProducts(); // 刷新列表
+
+            } catch (error) {
+                alert("操作失败: " + error.message);
+            }
+        }
+
+        // 2. 加载商品列表
+        async function loadMyProducts() {
+            const listDiv = document.getElementById('manager-list');
+            listDiv.innerHTML = "加载中...";
             
-            p.save().then(() => {
-                alert('上架成功！');
-                document.getElementById('p-name').value = '';
-                document.getElementById('p-price').value = '';
-                document.getElementById('p-img').value = '';
-            }, (err) => alert('失败:' + err.message));
+            const query = new AV.Query('Product');
+            query.descending('createdAt');
+            const products = await query.find();
+
+            document.getElementById('item-count').innerText = products.length;
+            listDiv.innerHTML = "";
+
+            products.forEach(p => {
+                const div = document.createElement('div');
+                div.className = 'item-row';
+                div.innerHTML = `
+                    <img src="${p.get('image')}" class="item-img" onerror="this.src='https://via.placeholder.com/50'">
+                    <div class="item-info">
+                        <div class="item-name">${p.get('name')}</div>
+                        <div class="item-price">¥ ${p.get('price')}</div>
+                    </div>
+                    <div class="item-actions">
+                        <button class="btn-blue btn-sm" onclick="startEdit('${p.id}')">编辑</button>
+                        <button class="btn-red btn-sm" onclick="deleteItem('${p.id}', '${p.get('name')}')">删除</button>
+                    </div>
+                `;
+                listDiv.appendChild(div);
+            });
+        }
+
+        // 3. 删除商品
+        async function deleteItem(id, name) {
+            if(!confirm(`⚠️ 确定要下架删除商品：\n[ ${name} ] 吗？\n此操作无法恢复！`)) return;
+            
+            try {
+                const product = AV.Object.createWithoutData('Product', id);
+                await product.destroy();
+                alert("已删除");
+                loadMyProducts();
+            } catch (error) {
+                alert("删除失败: " + error.message);
+            }
+        }
+
+        // 4. 开始编辑 (填充表单)
+        async function startEdit(id) {
+            // 获取数据
+            const query = new AV.Query('Product');
+            const p = await query.get(id);
+
+            // 填充到上面
+            document.getElementById('p-name').value = p.get('name');
+            document.getElementById('p-price').value = p.get('price');
+            
+            // 处理图片：优先用 images 数组，没有则用 image 字符串
+            const imgs = p.get('images') || [p.get('image')];
+            document.getElementById('p-img').value = imgs.join(', ');
+
+            // 切换 UI 状态
+            editingProductId = id;
+            document.getElementById('upload-box').classList.add('editing-mode');
+            document.getElementById('form-title').innerText = "✏️ 修改商品信息";
+            document.getElementById('submit-btn').innerText = "💾 保存修改";
+            document.getElementById('submit-btn').className = "btn-blue";
+            document.getElementById('edit-indicator').style.display = 'block';
+
+            // 滚动到顶部
+            document.getElementById('upload-box').scrollIntoView({behavior: "smooth"});
+        }
+
+        // 5. 取消编辑
+        function cancelEdit() {
+            editingProductId = null;
+            clearForm();
+            document.getElementById('upload-box').classList.remove('editing-mode');
+            document.getElementById('form-title').innerText = "📦 发布新商品";
+            document.getElementById('submit-btn').innerText = "🚀 立即上架";
+            document.getElementById('submit-btn').className = ""; // 恢复绿色
+            document.getElementById('edit-indicator').style.display = 'none';
+        }
+
+        function clearForm() {
+            document.getElementById('p-name').value = '';
+            document.getElementById('p-price').value = '';
+            document.getElementById('p-img').value = '';
+        }
+
+        // === 辅助功能 (收款码) ===
+        async function saveConfig() {
+            const qrUrl = document.getElementById('qr-code-url').value;
+            if(!qrUrl) return alert("请填写链接");
+            const query = new AV.Query('GlobalConfig');
+            let config;
+            try { config = await query.first(); } catch(e) {}
+            if (!config) { const C = AV.Object.extend('GlobalConfig'); config = new C(); }
+            config.set('paymentQR', qrUrl);
+            await config.save();
+            alert("配置已保存");
+        }
+
+        async function loadConfig() {
+            const query = new AV.Query('GlobalConfig');
+            const config = await query.first();
+            if(config) document.getElementById('qr-code-url').value = config.get('paymentQR');
         }
     </script>
 </body>
