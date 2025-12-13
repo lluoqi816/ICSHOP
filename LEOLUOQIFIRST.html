@@ -16,8 +16,14 @@
         .btn-edit { background: #1f6feb; width: auto; }
         .btn-del { background: #da3633; width: auto; }
         .edit-mode { border: 2px solid #1f6feb; padding: 10px; border-radius: 8px; }
-
-        /* 登录层 */
+        /* 聊天气泡 */
+        .chat-row { display: flex; gap: 10px; margin-bottom: 10px; align-items: flex-start; }
+        .chat-bubble { padding: 8px 12px; border-radius: 8px; max-width: 70%; font-size: 0.9rem; word-break: break-all; }
+        .bubble-user { background: #21262d; border: 1px solid #30363d; cursor: pointer; }
+        .bubble-user:hover { border-color: #58a6ff; }
+        .bubble-admin { background: #1f6feb; color: white; margin-left: auto; }
+        .del-msg { color: #da3633; cursor: pointer; font-size: 12px; margin-left: 5px; font-weight: bold; }
+        
         #login-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background:#0d1117; z-index:999; display:flex; justify-content:center; align-items:center; }
         .login-box { background:#161b22; padding:40px; border:1px solid #30363d; width:300px; }
     </style>
@@ -35,7 +41,7 @@
     </div>
 
     <div class="sidebar">
-        <h2>ADMIN</h2>
+        <h2 style="color:#58a6ff; text-align:center">ADMIN</h2>
         <button class="nav-btn active" onclick="switchTab('products')">📦 商品</button>
         <button class="nav-btn" onclick="switchTab('users')">👥 用户</button>
         <button class="nav-btn" onclick="switchTab('chat')">💬 客服</button>
@@ -48,7 +54,7 @@
         <div id="edit-form">
             <input type="text" id="p-name" placeholder="名称">
             <input type="number" id="p-price" placeholder="价格">
-            <textarea id="p-img" placeholder="图片链接"></textarea>
+            <textarea id="p-img" placeholder="图片链接 (多图用逗号隔开)"></textarea>
             <button id="submit-btn" onclick="handleProduct()">发布商品</button>
             <button id="cancel-btn" onclick="cancelEdit()" style="background:#333; display:none; margin-top:5px;">取消编辑</button>
         </div>
@@ -75,15 +81,24 @@
     <!-- 客服 -->
     <div id="tab-chat" class="main">
         <h3>客服中心</h3>
-        <div id="chat-list" style="height:300px; overflow-y:auto; border:1px solid #333; padding:10px; margin-bottom:10px;"></div>
-        <input id="reply-txt" placeholder="回复..."><button onclick="sendReply()">发送</button>
+        <div style="margin-bottom:10px; color:#8b949e; font-size:12px;">点击用户的消息即可回复该用户。</div>
+        <div id="chat-list" style="height:400px; overflow-y:auto; border:1px solid #333; padding:10px; margin-bottom:10px;"></div>
+        
+        <div style="background:#21262d; padding:10px; border-radius:6px;">
+            <div id="reply-target" style="color:#58a6ff; font-size:12px; margin-bottom:5px;">正在回复: (未选择)</div>
+            <div style="display:flex; gap:10px;">
+                <input id="reply-txt" placeholder="输入回复内容..." style="margin:0">
+                <button onclick="sendReply()" style="width:100px;">发送</button>
+            </div>
+        </div>
     </div>
 
     <script>
         const CONFIG = { appId: "SKHyBQH4nGeF6PDB8MVLTMD4-MdYXbMMI", appKey: "kUQ2O1stpz6V8bNhcbk2tkrV", serverURL: "https://skhybqh4.api.lncldglobal.com" };
         AV.init(CONFIG);
 
-        let editingId = null; // 当前编辑的商品ID
+        let editingId = null;
+        let currentReplyChannel = null;
 
         // === 登录 ===
         async function doLogin() {
@@ -91,10 +106,8 @@
             const p = document.getElementById('l-pass').value;
             const t = document.getElementById('l-token').value;
             try {
-                // 校验Token
                 const q = new AV.Query('SecureToken'); const real = await q.first();
                 if(!real || real.get('content') !== t) return alert("Token Invalid");
-                
                 await AV.User.logIn(e, p);
                 document.getElementById('login-overlay').style.display='none';
                 initData();
@@ -107,24 +120,21 @@
             document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
             document.getElementById('tab-'+t).classList.add('active');
             if(t==='users') loadUsers();
-            if(t==='chat') loadChat();
+            if(t==='chat') { loadChat(); setTimeout(()=>document.getElementById('chat-list').scrollTop=9999, 500); }
         }
 
-        // === 商品逻辑 (修复编辑功能) ===
+        // === 商品逻辑 ===
         async function handleProduct() {
             const n = document.getElementById('p-name').value;
             const pr = Number(document.getElementById('p-price').value);
             const i = document.getElementById('p-img').value;
             if(!n || !pr || !i) return alert("填写完整");
-            
             try {
                 if (editingId) {
-                    // 更新模式
                     const p = AV.Object.createWithoutData('Product', editingId);
                     p.set('name', n); p.set('price', pr); p.set('image', i);
                     await p.save(); alert("更新成功"); cancelEdit();
                 } else {
-                    // 新建模式
                     const P = AV.Object.extend('Product'); const p = new P();
                     p.set('name', n); p.set('price', pr); p.set('image', i);
                     await p.save(); alert("发布成功");
@@ -132,106 +142,75 @@
                 loadProducts();
             } catch(e) { alert(e.message); }
         }
-
         async function loadProducts() {
             const q = new AV.Query('Product'); q.descending('createdAt');
             const res = await q.find();
             const d = document.getElementById('prod-list'); d.innerHTML = "";
             res.forEach(p => {
-                d.innerHTML += `
-                    <div style="border-bottom:1px solid #333; padding:10px; display:flex; justify-content:space-between; align-items:center;">
-                        <div><b>${p.get('name')}</b> - ¥${p.get('price')}</div>
-                        <div>
-                            <button class="btn-edit" onclick="startEdit('${p.id}', '${p.get('name')}', ${p.get('price')}, '${p.get('image')}')">编辑</button>
-                            <button class="btn-del" onclick="delP('${p.id}')">删除</button>
-                        </div>
-                    </div>`;
+                d.innerHTML += `<div style="border-bottom:1px solid #333; padding:10px; display:flex; justify-content:space-between; align-items:center;"><div><b>${p.get('name')}</b> - ¥${p.get('price')}</div><div><button class="btn-edit" onclick="startEdit('${p.id}', '${p.get('name')}', ${p.get('price')}, '${p.get('image')}')">编辑</button> <button class="btn-del" onclick="delP('${p.id}')">删除</button></div></div>`;
             });
         }
-
         function startEdit(id, name, price, img) {
-            editingId = id;
-            document.getElementById('p-name').value = name;
-            document.getElementById('p-price').value = price;
-            document.getElementById('p-img').value = img;
-            
-            document.getElementById('submit-btn').innerText = "💾 保存修改";
-            document.getElementById('submit-btn').style.background = "#1f6feb";
-            document.getElementById('cancel-btn').style.display = "block";
-            document.getElementById('edit-form').classList.add('edit-mode');
+            editingId = id; document.getElementById('p-name').value = name; document.getElementById('p-price').value = price; document.getElementById('p-img').value = img;
+            document.getElementById('submit-btn').innerText = "💾 保存修改"; document.getElementById('submit-btn').style.background = "#1f6feb";
+            document.getElementById('cancel-btn').style.display = "block"; document.getElementById('edit-form').classList.add('edit-mode');
         }
-
         function cancelEdit() {
-            editingId = null;
-            document.getElementById('p-name').value = "";
-            document.getElementById('p-price').value = "";
-            document.getElementById('p-img').value = "";
-            
-            document.getElementById('submit-btn').innerText = "🚀 发布商品";
-            document.getElementById('submit-btn').style.background = "#238636";
-            document.getElementById('cancel-btn').style.display = "none";
-            document.getElementById('edit-form').classList.remove('edit-mode');
+            editingId = null; document.getElementById('p-name').value = ""; document.getElementById('p-price').value = ""; document.getElementById('p-img').value = "";
+            document.getElementById('submit-btn').innerText = "🚀 发布商品"; document.getElementById('submit-btn').style.background = "#238636";
+            document.getElementById('cancel-btn').style.display = "none"; document.getElementById('edit-form').classList.remove('edit-mode');
         }
+        async function delP(id) { if(!confirm("删除?")) return; const p = AV.Object.createWithoutData('Product', id); await p.destroy(); loadProducts(); }
+        async function saveQR() { const u = document.getElementById('qr-url').value; const q = new AV.Query('GlobalConfig'); let c; try { c = await q.first(); } catch(e){} if(!c) { const C = AV.Object.extend('GlobalConfig'); c = new C(); } c.set('paymentQR', u); await c.save(); alert("Saved"); }
+        async function loadQR() { const q = new AV.Query('GlobalConfig'); const c = await q.first(); if(c) document.getElementById('qr-url').value = c.get('paymentQR'); }
 
-        async function delP(id) {
-            if(!confirm("删除?")) return;
-            const p = AV.Object.createWithoutData('Product', id);
-            await p.destroy(); loadProducts();
-        }
-
-        // === 收款码 ===
-        async function saveQR() {
-            const u = document.getElementById('qr-url').value;
-            const q = new AV.Query('GlobalConfig'); let c;
-            try { c = await q.first(); } catch(e){}
-            if(!c) { const C = AV.Object.extend('GlobalConfig'); c = new C(); }
-            c.set('paymentQR', u); await c.save(); alert("Saved");
-        }
-        async function loadQR() {
-            const q = new AV.Query('GlobalConfig'); const c = await q.first();
-            if(c) document.getElementById('qr-url').value = c.get('paymentQR');
-        }
-
-        // === 用户 ===
+        // === 用户管理 ===
         async function loadUsers() {
             const q = new AV.Query('_User'); q.descending('createdAt'); const res = await q.find();
-            const bq = new AV.Query('Blacklist'); const bres = await bq.find();
-            const bans = bres.map(b=>b.get('email'));
+            const bq = new AV.Query('Blacklist'); const bres = await bq.find(); const bans = bres.map(b=>b.get('email'));
             const d = document.getElementById('user-list'); d.innerHTML = "";
             res.forEach(u => {
                 const e = u.getEmail() || u.getUsername(); const isB = bans.includes(e);
                 d.innerHTML += `<div style="padding:5px; ${isB?'color:red':''}">${e} ${isB?'(封禁)':''} <button class="btn-del" onclick="toggleBan('${e}', ${isB})">${isB?'解封':'封禁'}</button></div>`;
             });
         }
-        async function toggleBan(e, isB) {
-            if(isB) {
-                const q = new AV.Query('Blacklist'); q.equalTo('email', e); const res = await q.find();
-                await Promise.all(res.map(x=>x.destroy()));
-            } else {
-                const B = AV.Object.extend('Blacklist'); const b = new B(); b.set('email', e); await b.save();
-            }
-            loadUsers();
-        }
-        async function liftBan() {
-            const e = document.getElementById('unblock-email').value;
-            const q = new AV.Query('RegistrationLog'); q.equalTo('email', e);
-            const res = await q.find(); await Promise.all(res.map(x=>x.destroy())); alert("Done");
-        }
+        async function toggleBan(e, isB) { if(isB) { const q = new AV.Query('Blacklist'); q.equalTo('email', e); const res = await q.find(); await Promise.all(res.map(x=>x.destroy())); } else { const B = AV.Object.extend('Blacklist'); const b = new B(); b.set('email', e); await b.save(); } loadUsers(); }
+        async function liftBan() { const e = document.getElementById('unblock-email').value; const q = new AV.Query('RegistrationLog'); q.equalTo('email', e); const res = await q.find(); await Promise.all(res.map(x=>x.destroy())); alert("Done"); }
 
-        // === 聊天 ===
+        // === 聊天逻辑 ===
         async function loadChat() {
-            const q = new AV.Query('ChatMessage'); q.ascending('createdAt'); q.limit(20);
-            const ms = await q.find();
+            const q = new AV.Query('ChatMessage'); q.ascending('createdAt'); q.limit(50);
+            const msgs = await q.find();
             const d = document.getElementById('chat-list'); d.innerHTML = "";
-            ms.forEach(m => {
-                d.innerHTML += `<div><b>${m.get('isAdmin')?'Me':m.get('senderName')}:</b> ${m.get('content')}</div>`;
+            msgs.forEach(m => {
+                const isAdmin = m.get('isAdmin'); const sender = m.get('senderName'); const channel = m.get('channel') || sender;
+                const txt = m.get('content'); const id = m.id;
+                
+                if (isAdmin) {
+                    d.innerHTML += `<div class="chat-row"><div class="chat-bubble bubble-admin"><b>回复 ${channel}:</b> ${txt} <span class="del-msg" onclick="delMsg('${id}')">X</span></div></div>`;
+                } else {
+                    d.innerHTML += `<div class="chat-row"><div class="chat-bubble bubble-user" onclick="setReply('${channel}')"><b>${sender}:</b> ${txt} <span class="del-msg" onclick="delMsg('${id}')">X</span></div></div>`;
+                }
             });
         }
+        
+        function setReply(channel) {
+            currentReplyChannel = channel;
+            document.getElementById('reply-target').innerText = "正在回复: " + channel;
+        }
+
         async function sendReply() {
-            const t = document.getElementById('reply-txt').value;
-            const C = AV.Object.extend('ChatMessage'); const m = new C();
-            m.set('content', t); m.set('senderName', 'Admin'); m.set('isAdmin', true);
-            await m.save(); document.getElementById('reply-txt').value=""; loadChat();
+            if(!currentReplyChannel) return alert("请先点击一条用户消息来选择回复对象");
+            const txt = document.getElementById('reply-txt').value; if(!txt) return;
+            const Chat = AV.Object.extend('ChatMessage'); const msg = new Chat();
+            msg.set('content', txt); msg.set('senderName', 'Admin'); msg.set('isAdmin', true); msg.set('channel', currentReplyChannel);
+            await msg.save(); document.getElementById('reply-txt').value = ""; loadChat();
+        }
+
+        async function delMsg(id) {
+            if(!confirm("删除此消息？")) return;
+            const m = AV.Object.createWithoutData('ChatMessage', id);
+            await m.destroy(); loadChat();
         }
     </script>
 </body>
