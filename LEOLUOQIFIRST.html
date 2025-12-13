@@ -5,227 +5,233 @@
     <title>Icecube Master Control</title>
     <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.12.0/dist/av-min.js"></script>
     <style>
-        /* UI */
-        body { font-family: 'Segoe UI', monospace; background: #0d1117; color: #c9d1d9; display: flex; height: 100vh; margin: 0; overflow: hidden;}
+        body { font-family: 'Segoe UI', monospace; background: #0d1117; color: #c9d1d9; display: flex; height: 100vh; margin: 0; overflow: hidden; }
         .sidebar { width: 200px; background: #161b22; border-right: 1px solid #30363d; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
-        .sidebar h2 { color: #58a6ff; margin: 0 0 20px 0; font-size: 1.2rem; text-align: center; }
-        .nav-btn { padding: 12px; background: transparent; color: #8b949e; border: none; text-align: left; cursor: pointer; border-radius: 6px; font-weight: bold; }
-        .nav-btn:hover, .nav-btn.active { background: #21262d; color: #fff; }
-        .nav-btn.logout { margin-top: auto; color: #f85149; }
+        .nav-btn { padding: 12px; background: transparent; color: #8b949e; border: none; text-align: left; cursor: pointer; border-radius: 6px; }
+        .nav-btn.active { background: #21262d; color: #fff; }
         .main { flex: 1; padding: 20px; overflow-y: auto; display: none; }
         .main.active { display: block; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { border: 1px solid #30363d; padding: 10px; text-align: left; }
-        th { background: #21262d; color: #fff; }
-        .btn-sm { padding: 5px 10px; border-radius: 4px; border: none; cursor: pointer; color: white; margin-right: 5px;}
-        .btn-edit { background: #1f6feb; } .btn-del { background: #da3633; }
-        
+        input, textarea { width: 100%; padding: 10px; background: #0d1117; border: 1px solid #30363d; color: white; margin-bottom: 10px; box-sizing: border-box; }
+        button { padding: 10px; background: #238636; color: white; border: none; border-radius: 6px; cursor: pointer; width: 100%; }
+        .btn-edit { background: #1f6feb; width: auto; }
+        .btn-del { background: #da3633; width: auto; }
+        .edit-mode { border: 2px solid #1f6feb; padding: 10px; border-radius: 8px; }
+
         /* 登录层 */
         #login-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background:#0d1117; z-index:999; display:flex; justify-content:center; align-items:center; }
-        .login-box { background:#161b22; padding:40px; border:1px solid #30363d; width:300px; border-radius:10px; }
-        input,textarea { width:100%; padding:10px; margin:5px 0 15px 0; background:#0d1117; border:1px solid #30363d; color:white; box-sizing:border-box; }
-        button { width:100%; padding:10px; background:#238636; color:white; border:none; border-radius:6px; cursor:pointer; }
-
-        /* 聊天管理 */
-        .chat-admin-box { background: #161b22; border: 1px solid #30363d; height: 60vh; display: flex; flex-direction: column; border-radius: 10px; }
-        .chat-list { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
-        .chat-row { display: flex; gap: 10px; }
-        .chat-bubble { padding: 10px; border-radius: 8px; max-width: 60%; font-size: 0.9rem; }
-        .bubble-user { background: #21262d; border: 1px solid #30363d; }
-        .bubble-admin { background: #1f6feb; color: white; align-self: flex-end; margin-left: auto; }
+        .login-box { background:#161b22; padding:40px; border:1px solid #30363d; width:300px; }
     </style>
 </head>
 <body>
 
-    <!-- 登录层 -->
     <div id="login-overlay">
         <div class="login-box">
-            <h2 style="text-align:center; color:#58a6ff">MASTER LOGIN</h2>
-            <input type="text" id="l-email" placeholder="Email">
+            <h2 style="text-align:center">MASTER LOGIN</h2>
+            <input id="l-email" placeholder="Email">
             <input type="password" id="l-pass" placeholder="Password">
-            <input type="password" id="l-token" placeholder="RSA Token (100 chars)">
+            <input type="password" id="l-token" placeholder="RSA Token">
             <button onclick="doLogin()">AUTHENTICATE</button>
         </div>
     </div>
 
-    <!-- 侧边栏 -->
     <div class="sidebar">
-        <h2>ICECUBE ADMIN</h2>
-        <button class="nav-btn active" onclick="switchTab('products')">📦 商品管理</button>
-        <button class="nav-btn" onclick="switchTab('users')">👥 用户管理</button>
-        <button class="nav-btn" onclick="switchTab('chat')">💬 客服中心</button>
-        <button class="nav-btn logout" onclick="AV.User.logOut(); location.reload()">🛑 退出系统</button>
+        <h2>ADMIN</h2>
+        <button class="nav-btn active" onclick="switchTab('products')">📦 商品</button>
+        <button class="nav-btn" onclick="switchTab('users')">👥 用户</button>
+        <button class="nav-btn" onclick="switchTab('chat')">💬 客服</button>
+        <button class="nav-btn" style="margin-top:auto; color:red" onclick="AV.User.logOut();location.reload()">退出</button>
     </div>
 
-    <!-- 1. 商品管理 -->
+    <!-- 商品管理 -->
     <div id="tab-products" class="main active">
         <h3>商品发布 & 管理</h3>
-        <div style="background:#161b22; padding:20px; border-radius:8px;">
-            <input type="text" id="p-name" placeholder="商品名称">
+        <div id="edit-form">
+            <input type="text" id="p-name" placeholder="名称">
             <input type="number" id="p-price" placeholder="价格">
-            <textarea id="p-img" rows="2" placeholder="图片链接 (多图用逗号隔开)"></textarea>
-            <button onclick="uploadProduct()">🚀 发布商品</button>
+            <textarea id="p-img" placeholder="图片链接"></textarea>
+            <button id="submit-btn" onclick="handleProduct()">发布商品</button>
+            <button id="cancel-btn" onclick="cancelEdit()" style="background:#333; display:none; margin-top:5px;">取消编辑</button>
         </div>
-        <div style="margin-top:20px">
-            <h4>商品列表</h4>
-            <div id="manager-list">点击刷新加载...</div>
-        </div>
-    </div>
-
-    <!-- 2. 用户管理 -->
-    <div id="tab-users" class="main">
-        <h3>👥 注册用户列表</h3>
-        <button onclick="loadUsers()" style="width:auto; padding:5px 15px;">🔄 刷新列表</button>
-        <table>
-            <thead><tr><th>ID</th><th>用户名 / 邮箱</th><th>注册时间</th><th>操作</th></tr></thead>
-            <tbody id="user-table-body"></tbody>
-        </table>
         
-        <h3 style="margin-top:40px; border-top:1px solid #333; padding-top:20px;">🔓 风控解除中心</h3>
+        <h4>收款码配置</h4>
         <div style="display:flex; gap:10px;">
-            <input type="text" id="unblock-email" placeholder="输入被限制注册的邮箱" style="width:300px;">
-            <button onclick="liftRegistrationBan()" style="width:auto; background:#1f6feb">解除限制</button>
+            <input id="qr-url" placeholder="收款码链接">
+            <button onclick="saveQR()" style="width:100px;">保存</button>
         </div>
+
+        <h4>列表</h4>
+        <div id="prod-list"></div>
     </div>
 
-    <!-- 3. 客服中心 -->
+    <!-- 用户管理 -->
+    <div id="tab-users" class="main">
+        <h3>用户列表</h3>
+        <button onclick="loadUsers()" style="width:auto; margin-bottom:10px;">刷新</button>
+        <div id="user-list"></div>
+        <h4>解除风控</h4>
+        <input id="unblock-email" placeholder="邮箱"><button onclick="liftBan()">解除</button>
+    </div>
+
+    <!-- 客服 -->
     <div id="tab-chat" class="main">
-        <h3>💬 实时客服中心</h3>
-        <div class="chat-admin-box">
-            <div class="chat-list" id="chat-admin-list"></div>
-            <div style="padding:10px; background:#0d1117; display:flex; gap:10px;">
-                <input type="text" id="reply-txt" placeholder="回复消息..." style="margin:0;">
-                <button onclick="sendReply()" style="width:100px;">发送</button>
-            </div>
-        </div>
+        <h3>客服中心</h3>
+        <div id="chat-list" style="height:300px; overflow-y:auto; border:1px solid #333; padding:10px; margin-bottom:10px;"></div>
+        <input id="reply-txt" placeholder="回复..."><button onclick="sendReply()">发送</button>
     </div>
 
     <script>
-        const CONFIG = { 
-            appId: "SKHyBQH4nGeF6PDB8MVLTMD4-MdYXbMMI", 
-            appKey: "kUQ2O1stpz6V8bNhcbk2tkrV", 
-            serverURL: "https://skhybqh4.api.lncldglobal.com", 
-            mySecretKey: "Icecube2024" // 自定义备用密钥，如果不需要可忽略
-        };
+        const CONFIG = { appId: "SKHyBQH4nGeF6PDB8MVLTMD4-MdYXbMMI", appKey: "kUQ2O1stpz6V8bNhcbk2tkrV", serverURL: "https://skhybqh4.api.lncldglobal.com" };
         AV.init(CONFIG);
 
-        // === 登录 (RSA) ===
+        let editingId = null; // 当前编辑的商品ID
+
+        // === 登录 ===
         async function doLogin() {
-            const email = document.getElementById('l-email').value;
-            const pass = document.getElementById('l-pass').value;
-            const token = document.getElementById('l-token').value;
-            
-            // 简单校验Token长度
-            if(token.length !== 100) return alert("❌ Token 长度错误 (必须100位)");
-
+            const e = document.getElementById('l-email').value;
+            const p = document.getElementById('l-pass').value;
+            const t = document.getElementById('l-token').value;
             try {
-                // 1. 验证 Token (云端)
-                const q = new AV.Query('SecureToken');
-                const realTokenObj = await q.first();
-                if(!realTokenObj || realTokenObj.get('content') !== token) {
-                    return alert("❌ 令牌无效 (RSA Token Invalid)");
-                }
-
-                // 2. 登录
-                await AV.User.logIn(email, pass);
-                document.getElementById('login-overlay').style.display = 'none';
-                startChatPoll();
-                loadMyProducts();
-            } catch(e) { alert("登录失败: " + e.message); }
-        }
-
-        function switchTab(tab) {
-            document.querySelectorAll('.main').forEach(d => d.classList.remove('active'));
-            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-            document.getElementById('tab-'+tab).classList.add('active');
-            if(tab === 'users') loadUsers();
-            if(tab === 'chat') { loadAdminChat(); scrollChat(); }
-            if(tab === 'products') loadMyProducts();
-        }
-
-        // === 用户管理 (封禁/解封) ===
-        async function loadUsers() {
-            const tbody = document.getElementById('user-table-body');
-            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center">加载中...</td></tr>';
-            try {
-                const userQuery = new AV.Query('_User'); userQuery.descending('createdAt');
-                const users = await userQuery.find();
+                // 校验Token
+                const q = new AV.Query('SecureToken'); const real = await q.first();
+                if(!real || real.get('content') !== t) return alert("Token Invalid");
                 
-                const banQuery = new AV.Query('Blacklist');
-                const bannedList = await banQuery.find();
-                const bannedEmails = bannedList.map(i => i.get('email'));
-
-                tbody.innerHTML = "";
-                users.forEach(u => {
-                    const email = u.getEmail() || u.getUsername();
-                    const isBanned = bannedEmails.includes(email);
-                    const tr = document.createElement('tr');
-                    if(isBanned) tr.style.backgroundColor = "#3d1818";
-                    tr.innerHTML = `<td>${u.id.substring(0,6)}</td><td>${email} ${isBanned?'🚫':''}</td><td>${u.createdAt.toLocaleString()}</td><td>${isBanned ? `<button class="btn-sm btn-edit" style="background:green" onclick="unbanUser('${email}')">解封</button>` : `<button class="btn-sm btn-del" onclick="banUser('${email}')">封禁</button>`}</td>`;
-                    tbody.appendChild(tr);
-                });
-            } catch(e) { alert("加载失败: "+e.message); }
+                await AV.User.logIn(e, p);
+                document.getElementById('login-overlay').style.display='none';
+                initData();
+            } catch(err) { alert("Login Failed"); }
         }
 
-        async function banUser(email) {
-            if(!confirm("封禁该用户？")) return;
-            const Blacklist = AV.Object.extend('Blacklist');
-            const ban = new Blacklist(); ban.set('email', email); await ban.save();
-            alert("已封禁"); loadUsers();
+        function initData() { loadProducts(); loadQR(); setInterval(loadChat, 3000); }
+        function switchTab(t) {
+            document.querySelectorAll('.main').forEach(m=>m.classList.remove('active'));
+            document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+            document.getElementById('tab-'+t).classList.add('active');
+            if(t==='users') loadUsers();
+            if(t==='chat') loadChat();
         }
 
-        async function unbanUser(email) {
-            const q = new AV.Query('Blacklist'); q.equalTo('email', email);
+        // === 商品逻辑 (修复编辑功能) ===
+        async function handleProduct() {
+            const n = document.getElementById('p-name').value;
+            const pr = Number(document.getElementById('p-price').value);
+            const i = document.getElementById('p-img').value;
+            if(!n || !pr || !i) return alert("填写完整");
+            
+            try {
+                if (editingId) {
+                    // 更新模式
+                    const p = AV.Object.createWithoutData('Product', editingId);
+                    p.set('name', n); p.set('price', pr); p.set('image', i);
+                    await p.save(); alert("更新成功"); cancelEdit();
+                } else {
+                    // 新建模式
+                    const P = AV.Object.extend('Product'); const p = new P();
+                    p.set('name', n); p.set('price', pr); p.set('image', i);
+                    await p.save(); alert("发布成功");
+                }
+                loadProducts();
+            } catch(e) { alert(e.message); }
+        }
+
+        async function loadProducts() {
+            const q = new AV.Query('Product'); q.descending('createdAt');
             const res = await q.find();
-            await Promise.all(res.map(i => i.destroy()));
-            alert("已解封"); loadUsers();
+            const d = document.getElementById('prod-list'); d.innerHTML = "";
+            res.forEach(p => {
+                d.innerHTML += `
+                    <div style="border-bottom:1px solid #333; padding:10px; display:flex; justify-content:space-between; align-items:center;">
+                        <div><b>${p.get('name')}</b> - ¥${p.get('price')}</div>
+                        <div>
+                            <button class="btn-edit" onclick="startEdit('${p.id}', '${p.get('name')}', ${p.get('price')}, '${p.get('image')}')">编辑</button>
+                            <button class="btn-del" onclick="delP('${p.id}')">删除</button>
+                        </div>
+                    </div>`;
+            });
         }
 
-        async function liftRegistrationBan() {
-            const email = document.getElementById('unblock-email').value.trim();
-            if(!email) return;
-            const q = new AV.Query('RegistrationLog'); q.equalTo('email', email);
-            const res = await q.find();
-            await Promise.all(res.map(i => i.destroy()));
-            alert("已解除限制");
+        function startEdit(id, name, price, img) {
+            editingId = id;
+            document.getElementById('p-name').value = name;
+            document.getElementById('p-price').value = price;
+            document.getElementById('p-img').value = img;
+            
+            document.getElementById('submit-btn').innerText = "💾 保存修改";
+            document.getElementById('submit-btn').style.background = "#1f6feb";
+            document.getElementById('cancel-btn').style.display = "block";
+            document.getElementById('edit-form').classList.add('edit-mode');
+        }
+
+        function cancelEdit() {
+            editingId = null;
+            document.getElementById('p-name').value = "";
+            document.getElementById('p-price').value = "";
+            document.getElementById('p-img').value = "";
+            
+            document.getElementById('submit-btn').innerText = "🚀 发布商品";
+            document.getElementById('submit-btn').style.background = "#238636";
+            document.getElementById('cancel-btn').style.display = "none";
+            document.getElementById('edit-form').classList.remove('edit-mode');
+        }
+
+        async function delP(id) {
+            if(!confirm("删除?")) return;
+            const p = AV.Object.createWithoutData('Product', id);
+            await p.destroy(); loadProducts();
+        }
+
+        // === 收款码 ===
+        async function saveQR() {
+            const u = document.getElementById('qr-url').value;
+            const q = new AV.Query('GlobalConfig'); let c;
+            try { c = await q.first(); } catch(e){}
+            if(!c) { const C = AV.Object.extend('GlobalConfig'); c = new C(); }
+            c.set('paymentQR', u); await c.save(); alert("Saved");
+        }
+        async function loadQR() {
+            const q = new AV.Query('GlobalConfig'); const c = await q.first();
+            if(c) document.getElementById('qr-url').value = c.get('paymentQR');
+        }
+
+        // === 用户 ===
+        async function loadUsers() {
+            const q = new AV.Query('_User'); q.descending('createdAt'); const res = await q.find();
+            const bq = new AV.Query('Blacklist'); const bres = await bq.find();
+            const bans = bres.map(b=>b.get('email'));
+            const d = document.getElementById('user-list'); d.innerHTML = "";
+            res.forEach(u => {
+                const e = u.getEmail() || u.getUsername(); const isB = bans.includes(e);
+                d.innerHTML += `<div style="padding:5px; ${isB?'color:red':''}">${e} ${isB?'(封禁)':''} <button class="btn-del" onclick="toggleBan('${e}', ${isB})">${isB?'解封':'封禁'}</button></div>`;
+            });
+        }
+        async function toggleBan(e, isB) {
+            if(isB) {
+                const q = new AV.Query('Blacklist'); q.equalTo('email', e); const res = await q.find();
+                await Promise.all(res.map(x=>x.destroy()));
+            } else {
+                const B = AV.Object.extend('Blacklist'); const b = new B(); b.set('email', e); await b.save();
+            }
+            loadUsers();
+        }
+        async function liftBan() {
+            const e = document.getElementById('unblock-email').value;
+            const q = new AV.Query('RegistrationLog'); q.equalTo('email', e);
+            const res = await q.find(); await Promise.all(res.map(x=>x.destroy())); alert("Done");
         }
 
         // === 聊天 ===
-        function startChatPoll() { setInterval(loadAdminChat, 3000); }
-        async function loadAdminChat() {
-            const q = new AV.Query('ChatMessage'); q.ascending('createdAt'); q.limit(50);
-            const msgs = await q.find();
-            const div = document.getElementById('chat-admin-list'); div.innerHTML = "";
-            msgs.forEach(m => {
-                const isAdmin = m.get('isAdmin'); const txt = m.get('content');
-                div.innerHTML += `<div class="chat-row"><div class="chat-bubble ${isAdmin?'bubble-admin':'bubble-user'}"><b>${isAdmin?'Me':m.get('senderName')}:</b> ${txt}</div></div>`;
+        async function loadChat() {
+            const q = new AV.Query('ChatMessage'); q.ascending('createdAt'); q.limit(20);
+            const ms = await q.find();
+            const d = document.getElementById('chat-list'); d.innerHTML = "";
+            ms.forEach(m => {
+                d.innerHTML += `<div><b>${m.get('isAdmin')?'Me':m.get('senderName')}:</b> ${m.get('content')}</div>`;
             });
         }
         async function sendReply() {
-            const txt = document.getElementById('reply-txt').value; if(!txt) return;
-            const Chat = AV.Object.extend('ChatMessage'); const msg = new Chat();
-            msg.set('content', txt); msg.set('senderName', 'Admin'); msg.set('isAdmin', true);
-            await msg.save(); document.getElementById('reply-txt').value = ""; loadAdminChat();
-        }
-        function scrollChat() { setTimeout(() => { const d = document.getElementById('chat-admin-list'); d.scrollTop = d.scrollHeight; }, 200); }
-
-        // === 商品发布 (简略) ===
-        async function uploadProduct() {
-            const name = document.getElementById('p-name').value;
-            const price = Number(document.getElementById('p-price').value);
-            const imgRaw = document.getElementById('p-img').value;
-            if(!name || !price || !imgRaw) return alert("填写完整");
-            const imgs = imgRaw.split(',');
-            const P = AV.Object.extend('Product'); const p = new P();
-            p.set('name', name); p.set('price', price); p.set('image', imgs[0]);
-            await p.save(); alert("发布成功"); loadMyProducts();
-        }
-        async function loadMyProducts() {
-            const q = new AV.Query('Product'); q.descending('createdAt'); const res = await q.find();
-            document.getElementById('manager-list').innerHTML = res.map(p=>`<div>${p.get('name')} - ¥${p.get('price')} <button class="btn-sm btn-del" onclick="delP('${p.id}')">删</button></div>`).join('');
-        }
-        async function delP(id) {
-            const p = AV.Object.createWithoutData('Product', id); await p.destroy(); loadMyProducts();
+            const t = document.getElementById('reply-txt').value;
+            const C = AV.Object.extend('ChatMessage'); const m = new C();
+            m.set('content', t); m.set('senderName', 'Admin'); m.set('isAdmin', true);
+            await m.save(); document.getElementById('reply-txt').value=""; loadChat();
         }
     </script>
 </body>
