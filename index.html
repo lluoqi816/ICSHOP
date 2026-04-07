@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>艺卓| 官方旗舰店</title>
     <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.12.0/dist/av-min.js"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
         /* === 优化后的样式区 === */
         :root { 
@@ -770,6 +771,24 @@
             animation: shake 0.5s ease;
         }
         
+        /* === Google 登录按钮优化 === */
+        .divider {
+            display: flex;
+            align-items: center;
+            margin: 18px 0;
+            gap: 12px;
+            color: #9ca3af;
+            font-size: 0.85rem;
+        }
+        
+        .divider::before,
+        .divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: #e5e7eb;
+        }
+        
         @keyframes shake {
             0%, 100% { transform: translateX(0); }
             25% { transform: translateX(-10px); }
@@ -860,6 +879,17 @@
     <div class="modal-overlay" id="auth-modal">
         <div class="modal-box">
             <h2 id="auth-title">登录</h2>
+            
+            <!-- Google 登录按钮 -->
+            <div id="g_id_onload"
+                 data-client_id="316558571894-tihc924vp0okpb3nc6pd4gm1flit8c6a.apps.googleusercontent.com"
+                 data-callback="handleCredentialResponse"
+                 data-auto_prompt="false">
+            </div>
+            <div id="google-signin-btn" class="g_id_signin" data-type="standard" data-size="large" data-theme="outline" data-text="signin_with" data-shape="rectangular" data-logo_alignment="left"></div>
+            
+            <div class="divider"><span>或使用邮箱登录</span></div>
+            
             <input id="u-email" class="auth-input" placeholder="邮箱">
             <input id="u-pass" type="password" class="auth-input" placeholder="密码">
             <div id="captcha-area">
@@ -897,6 +927,90 @@
     <script>
         const CONFIG = { appId: "SKHyBQH4nGeF6PDB8MVLTMD4-MdYXbMMI", appKey: "kUQ2O1stpz6V8bNhcbk2tkrV", serverURL: "https://skhybqh4.api.lncldglobal.com" };
         AV.init(CONFIG);
+        
+        // === Google Sign-In 回调函数 ===
+        function handleCredentialResponse(response) {
+            console.log('Google 登录成功！');
+            try {
+                const base64Url = response.credential.split('.')[1];
+                const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+                const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+                    return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+                }).join(''));
+                
+                const userData = JSON.parse(jsonPayload);
+                console.log('用户信息:', userData);
+                loginWithGoogle(userData);
+            } catch(err) {
+                console.error('解析 Google token 失败:', err);
+                alert('Google 登录失败，请稍后重试');
+            }
+        }
+        
+        // 使用 Google 信息登录
+        async function loginWithGoogle(googleUser) {
+            try {
+                const email = googleUser.email;
+                const name = googleUser.name;
+                const googleId = googleUser.sub;
+                const picture = googleUser.picture;
+                
+                const query = new AV.Query(AV.User);
+                query.equalTo('email', email);
+                let user = await query.first();
+                
+                if (!user) {
+                    const newUser = new AV.User();
+                    newUser.setUsername(email);
+                    newUser.setPassword(googleId);
+                    newUser.setEmail(email);
+                    newUser.set('googleId', googleId);
+                    newUser.set('displayName', name);
+                    newUser.set('profilePicture', picture);
+                    await newUser.signUp();
+                    console.log('新用户创建成功:', email);
+                } else {
+                    user.set('googleId', googleId);
+                    user.set('displayName', name);
+                    user.set('profilePicture', picture);
+                    await user.save();
+                }
+                
+                // 使用用户名和 Google ID 登录
+                await AV.User.logIn(email, googleId);
+                document.getElementById('auth-modal').style.display = 'none';
+                location.reload();
+                
+            } catch(err) {
+                console.error('Google 登录处理失败:', err);
+                alert('登录失败: ' + err.message);
+            }
+        }
+        
+        // 初始化 Google Sign-In
+        window.addEventListener('load', function() {
+            if (window.google && google.accounts && google.accounts.id) {
+                google.accounts.id.initialize({
+                    client_id: '316558571894-tihc924vp0okpb3nc6pd4gm1flit8c6a.apps.googleusercontent.com',
+                    callback: handleCredentialResponse,
+                    auto_select: false
+                });
+                
+                try {
+                    google.accounts.id.renderButton(
+                        document.getElementById('google-signin-btn'),
+                        {
+                            theme: 'outline',
+                            size: 'large',
+                            text: 'signin_with',
+                            width: '100%'
+                        }
+                    );
+                } catch(e) {
+                    console.warn('Google Sign-In 按钮渲染失败:', e);
+                }
+            }
+        });
 
         let cart = JSON.parse(localStorage.getItem('myCart') || '[]');
         let isReg = false; let realC = "";
