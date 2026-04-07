@@ -955,28 +955,30 @@
                 const googleId = googleUser.sub;
                 const picture = googleUser.picture;
                 
-                const query = new AV.Query(AV.User);
-                query.equalTo('email', email);
-                let user = await query.first();
-                
-                if (!user) {
-                    const newUser = new AV.User();
-                    newUser.setUsername(email);
-                    newUser.setPassword(googleId);
-                    newUser.setEmail(email);
-                    newUser.set('googleId', googleId);
-                    newUser.set('displayName', name);
-                    newUser.set('profilePicture', picture);
-                    await newUser.signUp();
-                    console.log('新用户创建成功:', email);
-                } else {
-                    user.set('googleId', googleId);
-                    user.set('displayName', name);
-                    user.set('profilePicture', picture);
-                    await user.save();
+                // 先尝试用 email + googleId 登录（如果已存在）
+                try {
+                    await AV.User.logIn(email, googleId);
+                    console.log('Google 用户已存在，登录成功:', email);
+                    document.getElementById('auth-modal').style.display = 'none';
+                    location.reload();
+                    return;
+                } catch(loginErr) {
+                    // 登录失败，说明需要创建新用户
+                    console.log('现有用户不存在或密码不匹配，准备创建新用户');
                 }
                 
-                // 使用用户名和 Google ID 登录
+                // 创建新用户
+                const newUser = new AV.User();
+                newUser.setUsername(email);
+                newUser.setPassword(googleId);
+                newUser.setEmail(email);
+                newUser.set('googleId', googleId);
+                newUser.set('displayName', name);
+                newUser.set('profilePicture', picture);
+                await newUser.signUp();
+                console.log('新用户创建成功:', email);
+                
+                // 登录新用户
                 await AV.User.logIn(email, googleId);
                 document.getElementById('auth-modal').style.display = 'none';
                 location.reload();
